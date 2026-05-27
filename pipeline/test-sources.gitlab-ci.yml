@@ -23,3 +23,8 @@ test-sources:package:
   extends: .test-sources
   script:
     - bats --report-formatter junit -o . tests/build/
+
+test-sources:javatest:
+  extends: .test-sources
+  script:
+    - bats --report-formatter junit -o . tests/javatest/
