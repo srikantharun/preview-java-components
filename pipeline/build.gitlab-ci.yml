@@ -1,0 +1,18 @@
+# =============================================================================
+# Build component Docker images
+# =============================================================================
+
+build-component-image:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  rules:
+    - changes:
+        - Dockerfile
+        - src/**/*

@@ -1,0 +1,51 @@
+spec:
+  inputs:
+    java_version:
+      type: string
+      description: Major JDK version to use (LTS only)
+---
+
+workflow:
+  name: "lint (passing tests, JDK$[[ inputs.java_version ]])"
+  rules:
+    - when: always
+
+stages:
+  - test
+  - assert
+
+include:
+  - component: $CI_SERVER_FQDN/$CI_PROJECT_PATH/lint@$CI_COMMIT_SHA
+    inputs:
+      java_version: "$[[ inputs.java_version | expand_vars ]]"
+      job_stage: test
+      component_context_dir: "pipeline/test-pipelines/lint/fixtures/pass"
+
+# Need to override Component jobs to remove the Code Quality report, otherwise
+# it gets reported in this Component's own CI pipeline MR dashboards.
+# For the purposes of assertion, the report is still captured as a normal
+# artifact.
+java::lint::checkstyle:
+  artifacts:
+    reports:
+      codequality: nullfile.json
+
+java::lint::spotbugs:
+  artifacts:
+    reports:
+      codequality: nullfile.json
+
+# Assertions
+assert::pass::checkstyle:
+  stage: assert
+  image: nexus.nonprod.dwpcloud.uk/docker/chainguard/curl:latest-dev
+  tags:
+    - dwp-aws-x86-linux-l
+  script: pipeline/test-pipelines/lint/assert.pass.checkstyle.sh "pipeline/test-pipelines/lint/fixtures/pass"
+
+assert::pass::spotbugs:
+  stage: assert
+  image: nexus.nonprod.dwpcloud.uk/docker/chainguard/curl:latest-dev
+  tags:
+    - dwp-aws-x86-linux-l
+  script: pipeline/test-pipelines/lint/assert.pass.spotbugs.sh "pipeline/test-pipelines/lint/fixtures/pass"

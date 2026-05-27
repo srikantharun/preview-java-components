@@ -1,5 +1,5 @@
 spec:
-  component: [name, sha, version]
+  component: [sha, version]
   inputs:
     java_version:
       default: "25"
@@ -49,7 +49,9 @@ include:
       component_context_dir: "$[[ inputs.component_context_dir ]]"
       job_name_prefix: "$[[ inputs.job_name_prefix ]]"
       job_stage: "$[[ inputs.job_stage ]]"
-      _component_image: "$CI_TEMPLATE_REGISTRY_HOST/dwp/engineering/pipeline-solutions/gitlab/components/java:$[[ component.sha ]]-jdk$[[ inputs.java_version ]]"
+      _component_sha: "$[[ component.sha ]]"
+      _component_version: "$[[ component.version ]]"
+      java_version: "$[[ inputs.java_version ]]"
 
 # Checkstyle linting
 "$[[ inputs.job_name_prefix ]]java::lint::checkstyle":

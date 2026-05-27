@@ -1,0 +1,25 @@
+# =============================================================================
+# Unit tests using BATS for component shell scripts
+# =============================================================================
+
+.test-sources:
+  stage: test
+  image: bats/bats:latest
+  rules:
+    - changes:
+        - src/**/*.sh
+        - tests/**/*.bats
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+
+test-sources:lint:
+  extends: .test-sources
+  script:
+    - bats --report-formatter junit -o . tests/lint/
+
+test-sources:package:
+  extends: .test-sources
+  script:
+    - bats --report-formatter junit -o . tests/build/

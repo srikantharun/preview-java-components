@@ -1,0 +1,33 @@
+spec:
+  inputs:
+    java_version:
+      type: string
+      description: Major JDK version to use (LTS only)
+---
+
+workflow:
+  name: "javabuild (failing tests, JDK$[[ inputs.java_version ]])"
+  rules:
+    - when: always
+
+stages:
+  - build
+  - assert
+
+include:
+  - component: $CI_SERVER_FQDN/$CI_PROJECT_PATH/build@$CI_COMMIT_SHA
+    inputs:
+      java_version: "$[[ inputs.java_version | expand_vars ]]"
+      component_context_dir: "pipeline/test-pipelines/build/javabuild/fixtures/fail"
+
+# Override the build job to expect failure
+"java::build":
+  allow_failure: true
+
+# Assertions
+assert::fail:
+  stage: assert
+  image: nexus.nonprod.dwpcloud.uk/docker/chainguard/curl:latest-dev
+  tags:
+    - dwp-aws-x86-linux-l
+  script: pipeline/test-pipelines/build/javabuild/assert.fail.sh "pipeline/test-pipelines/build/javabuild/fixtures/fail"

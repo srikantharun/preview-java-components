@@ -2,42 +2,49 @@
 
 A collection of GitLab CI/CD Components for building, testing, and deploying Java applications.
 
-## Architecture
+## Design Philosophy
 
-This repository provides **atomic components** that can be composed together, plus a **meta-component** for convenience:
+**Convention over Configuration** - Components work out of the box with prescribed best practices. Minimal inputs required.
+
+| Principle | Implementation |
+|-----------|---------------|
+| Sensible defaults | Best practices are ON by default |
+| Minimal inputs | Only expose what users truly need to change |
+| Hide Maven | Abstracts Maven lifecycle - customers see `build`, `test`, `lint` |
+| Prescribe quality | Mutation tests, integration tests enabled by default |
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    java/app-pipeline                            │
 │                    (meta-component)                             │
 ├─────────────────────────────────────────────────────────────────┤
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌────────┐ ┌────────┐ ┌──────┐        │
-│  │lint │ │build│ │test │ │api-test│ │mutation│ │docker│  ...   │
-│  └─────┘ └─────┘ └─────┘ └────────┘ └────────┘ └──────┘        │
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌──────┐ ┌────────┐ ┌───────┐         │
+│  │lint │ │build│ │test │ │docker│ │security│ │release│   ...   │
+│  └─────┘ └─────┘ └─────┘ └──────┘ └────────┘ └───────┘         │
 │                    (atomic components)                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
 
-### Option 1: Use the meta-component (recommended for most teams)
+### Option 1: Use the meta-component (recommended)
 
 ```yaml
 include:
   - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/app-pipeline@1.0.0
-    inputs:
-      has_api: true
-      use_wiremock: true
 ```
 
-### Option 2: Compose atomic components (for advanced customization)
+That's it. Zero configuration needed for most projects.
+
+### Option 2: Compose atomic components
 
 ```yaml
 include:
-  - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/lint@1.0.0
   - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/build@1.0.0
   - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/test@1.0.0
-  - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/docker@1.0.0
+  - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/lint@1.0.0
 ```
 
 ## Components
@@ -46,54 +53,54 @@ include:
 
 | Component | Description |
 |-----------|-------------|
-| [app-pipeline](./docs/app-pipeline/usage.md) | Complete pipeline for Java backend applications. Composes atomic components based on inputs. |
+| [app-pipeline](./docs/app-pipeline/usage.md) | Complete pipeline for Java applications. Composes atomic components with prescribed best practices. |
 
 ### Atomic Components
 
-| Component | Jobs | Description |
-|-----------|------|-------------|
-| [lint](./docs/lint/usage.md) | checkstyle, spotbugs, pmd, hadolint, shellcheck, openapi | Static code analysis |
-| [build](./docs/build/usage.md) | dependencies, package | Maven dependency resolution and packaging |
-| [test](./docs/test/usage.md) | unit, integration | Unit and integration testing |
-| [api-test](./docs/api-test/usage.md) | wiremock | API integration testing with Wiremock |
-| [mutation-test](./docs/mutation-test/usage.md) | pitest | PiTest mutation testing |
-| [docker](./docs/docker/usage.md) | build | Docker image building |
-| [security](./docs/security/usage.md) | sonarqube, container-scan, virus-scan | Static security analysis |
-| [security-dynamic](./docs/security-dynamic/usage.md) | api-fuzzer, dast-api | Dynamic security testing |
-| [performance](./docs/performance/usage.md) | k6 | K6 load performance testing |
-| [release](./docs/release/usage.md) | auto-tag-merge | Automated release management |
+| Component | What It Does | Prescribed Behavior |
+|-----------|--------------|---------------------|
+| [build](./docs/build/usage.md) | Builds JAR file | `mvn package -DskipTests` |
+| [test](./docs/test/usage.md) | Runs all tests | Unit, integration, mutation ON by default |
+| [lint](./docs/lint/usage.md) | Static analysis | Checkstyle, SpotBugs, PMD |
+| [docker](./docs/docker/usage.md) | Docker image | Build and push |
+| [security](./docs/security/usage.md) | Security scanning | SonarQube, container scan |
+| [security-dynamic](./docs/security-dynamic/usage.md) | Dynamic security | API fuzzing, DAST |
+| [performance](./docs/performance/usage.md) | Performance tests | K6 load testing |
+| [release](./docs/release/usage.md) | Release management | Auto-tag-merge |
+
+## Prescribed Best Practices
+
+| Feature | Default | Why |
+|---------|---------|-----|
+| Integration tests | ON | Essential for quality |
+| Mutation tests | ON | Catches bugs unit tests miss |
+| Static analysis | ON | Early bug detection |
+| Security scanning | ON | Shift-left security |
+
+## Standard Inputs
+
+All components accept these minimal inputs:
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `java_version` | string | `25` | Java version (`21` or `25`) |
+| `component_context_dir` | string | `./` | Working directory (for monorepos) |
+| `job_name_prefix` | string | `""` | Job name prefix (for monorepos) |
 
 ## Migration from Legacy Templates
-
-If you're migrating from the legacy `java-backend-*` templates:
 
 | Legacy Template | New Configuration |
 |-----------------|-------------------|
 | `java-backend` | `has_api: true, use_wiremock: true` |
 | `java-backend-without-wiremock` | `has_api: true, use_wiremock: false` |
-| `java-backend-no-api` | `has_api: false, use_wiremock: false` |
+| `java-backend-no-api` | `has_api: false` |
 
-See the [Migration Guide](./docs/app-pipeline/migration.md) for detailed instructions.
-
-## Standard Inputs
-
-All components support these standard inputs:
-
-| Input | Type | Default | Description |
-|-------|------|---------|-------------|
-| `component_context_dir` | string | `./` | Working directory for the component |
-| `job_name_prefix` | string | `""` | Prefix for job names (for monorepos) |
-| `java_version` | string | `25` | Java version (`21` or `25`) |
-
-## Contribute
-
-Read our [contributing guidance](CONTRIBUTING.md).
+See the [Migration Guide](./docs/app-pipeline/migration.md) for details.
 
 ## Support
 
 - **Issues:** [Raise in this repository][support-issue]
 - **Slack:** [#support-cicd-components][support-slack]
 
-<!-- Links -->
 [support-issue]: /dwp/engineering/pipeline-solutions/gitlab/components/java/-/issues
 [support-slack]: https://dwpdigital.slack.com/archives/C025DK6HFPS

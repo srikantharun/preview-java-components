@@ -1,5 +1,5 @@
 spec:
-  component: [name, sha, version]
+  component: [sha, version]
   inputs:
     java_version:
       default: "25"
@@ -17,43 +17,36 @@ spec:
       description: "Prefix for all component jobs"
       regex: ^([a-z][a-z0-9-]+::)*$
       type: string
-    job_stage_install:
-      default: "install"
-      description: "Pipeline stage for dependency installation"
-      type: string
-    job_stage_build:
+    job_stage:
       default: "build"
-      description: "Pipeline stage for build"
+      description: "Pipeline stage in which jobs are run"
       type: string
 ---
+# =============================================================================
+# java/build - Builds JAR file
+#
+# Prescribed behavior:
+#   - JAR built using mvn package -DskipTests
+#   - Tests are NOT run here (use java/test component)
+#
+# Output: target/*.jar
+# =============================================================================
+
 include:
   - local: /templates/shared/common.yml
     inputs:
       component_context_dir: "$[[ inputs.component_context_dir ]]"
       job_name_prefix: "$[[ inputs.job_name_prefix ]]"
-      job_stage: "$[[ inputs.job_stage_install ]]"
-      _component_image: "$CI_TEMPLATE_REGISTRY_HOST/dwp/engineering/pipeline-solutions/gitlab/components/java:$[[ component.sha ]]-jdk$[[ inputs.java_version ]]"
+      job_stage: "$[[ inputs.job_stage ]]"
+      _component_sha: "$[[ component.sha ]]"
+      _component_version: "$[[ component.version ]]"
+      java_version: "$[[ inputs.java_version ]]"
 
-# Maven dependencies - install stage
-"$[[ inputs.job_name_prefix ]]java::build::dependencies":
-  artifacts:
-    expire_in: 1 week
-    paths:
-      - $[[ inputs.component_context_dir ]]/.m2-local/
-  cache:
-    key: "${CI_JOB_NAME}-$[[ inputs.java_version ]]"
-    paths:
-      - $[[ inputs.component_context_dir ]]/.m2-local/
-    when: always
-  extends: ".$[[ inputs.job_name_prefix ]]java::common"
-  stage: $[[ inputs.job_stage_install ]]
-  script: |
-    mvn dependency:go-offline \
-      -Dmaven.repo.local=.m2-local \
-      -s /component/shared/settings.xml
+# =============================================================================
+# Build JAR
+# =============================================================================
 
-# Maven package - build stage
-"$[[ inputs.job_name_prefix ]]java::build::package":
+"$[[ inputs.job_name_prefix ]]java::build":
   artifacts:
     expire_in: 1 week
     paths:
@@ -64,11 +57,4 @@ include:
       - $[[ inputs.component_context_dir ]]/.m2-local/
     when: always
   extends: ".$[[ inputs.job_name_prefix ]]java::common"
-  needs:
-    - job: "$[[ inputs.job_name_prefix ]]java::build::dependencies"
-      optional: true
-  stage: $[[ inputs.job_stage_build ]]
-  script: |
-    mvn package -DskipTests \
-      -Dmaven.repo.local=.m2-local \
-      -s /component/shared/settings.xml
+  script: /component/build/jobs/package.sh

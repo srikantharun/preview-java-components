@@ -81,12 +81,14 @@ include:
       component_context_dir: "$[[ inputs.component_context_dir ]]"
       job_name_prefix: "$[[ inputs.job_name_prefix ]]"
 
-  # Test component
+  # Test component (includes unit, integration, wiremock, and mutation testing)
   - local: /templates/test.yml
     inputs:
       java_version: "$[[ inputs.java_version ]]"
       component_context_dir: "$[[ inputs.component_context_dir ]]"
       job_name_prefix: "$[[ inputs.job_name_prefix ]]"
+      run_wiremock: "$[[ inputs.has_api && inputs.use_wiremock ]]"
+      run_mutation_tests: "$[[ inputs.run_mutation_tests ]]"
 
   # Docker component
   - local: /templates/docker.yml
@@ -149,23 +151,6 @@ include:
 # Conditional components - included based on inputs
 # =============================================================================
 
-# --- API Test component (only when has_api=true) ---
-"$[[ inputs.job_name_prefix ]]java::api-test::wiremock":
-  extends: ".$[[ inputs.job_name_prefix ]]java::common"
-  stage: integration-test
-  needs:
-    - job: "$[[ inputs.job_name_prefix ]]java::build::package"
-      optional: true
-  rules:
-    - if: '"$[[ inputs.has_api ]]" == "true" && "$[[ inputs.use_wiremock ]]" == "true"'
-  variables:
-    DISABLE_WIREMOCK: "false"
-  script: |
-    echo "Running Wiremock integration tests..."
-    mvn verify -Pwiremock \
-      -Dmaven.repo.local=.m2-local \
-      -s /component/shared/settings.xml
-
 # --- Security Dynamic component (only when has_api=true) ---
 "$[[ inputs.job_name_prefix ]]java::security-dynamic::api-fuzzer":
   extends: ".$[[ inputs.job_name_prefix ]]java::common"
@@ -188,26 +173,6 @@ include:
     - if: '"$[[ inputs.has_api ]]" == "true"'
   script: |
     echo "Running DAST API security tests..."
-
-# --- Mutation Test component (when run_mutation_tests=true) ---
-"$[[ inputs.job_name_prefix ]]java::mutation-test::pitest":
-  extends: ".$[[ inputs.job_name_prefix ]]java::common"
-  stage: security-static-analysis
-  needs:
-    - job: "$[[ inputs.job_name_prefix ]]java::test::unit"
-      optional: true
-  rules:
-    - if: '"$[[ inputs.run_mutation_tests ]]" == "true"'
-  artifacts:
-    expire_in: 1 week
-    paths:
-      - $[[ inputs.component_context_dir ]]/target/pit-reports/
-    when: always
-  script: |
-    echo "Running PiTest mutation testing..."
-    mvn org.pitest:pitest-maven:mutationCoverage \
-      -Dmaven.repo.local=.m2-local \
-      -s /component/shared/settings.xml
 
 # --- Performance component (when run_performance_tests=true and k6_test_file set) ---
 "$[[ inputs.job_name_prefix ]]java::performance::k6":

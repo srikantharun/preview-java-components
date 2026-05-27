@@ -1,0 +1,18 @@
+include:
+  - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/app-pipeline@1.0.0
+    inputs:
+      java_version: "${{ values.java_version }}"
+      has_api: ${{ values.has_api }}
+      use_wiremock: ${{ values.use_wiremock }}
+
+stages:
+  - .pre
+  - install
+  - build
+  - unit-test
+  - code-analysis
+  - package
+  - integration-test
+  - security-static-analysis
+  - security-dynamic-analysis
+  - .post

@@ -2,7 +2,10 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: java-components
-  description: GitLab CI/CD Components for Java applications
+  title: Java CI/CD Components
+  description: |
+    A collection of GitLab CI/CD Components for building, testing, and deploying Java applications.
+    Follows "convention over configuration" philosophy with prescriptive best practices.
   labels:
     tier: platform
   tags:
@@ -10,107 +13,176 @@ metadata:
     - java
     - maven
     - components
+    - cicd
   annotations:
     gitlab.com/project-slug: dwp/engineering/pipeline-solutions/gitlab/components/java
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://gitlab.com/dwp/engineering/pipeline-solutions/gitlab/components/java
+      title: GitLab Repository
+      icon: gitlab
+    - url: https://dwpdigital.slack.com/archives/C025DK6HFPS
+      title: Slack Support
+      icon: chat
 spec:
   type: library
   lifecycle: production
   owner: group:devx-working-group
-  providesApis: []
-  consumesApis: []
----
-# Individual component registrations
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: java-lint
-  description: Static code analysis for Java (Checkstyle, SpotBugs, PMD)
-  tags:
-    - lint
-    - checkstyle
-    - spotbugs
-spec:
-  type: ci-component
-  lifecycle: production
-  owner: group:devx-working-group
+  system: devx-platform
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: java-build
-  description: Maven build and dependency management
+  title: Java Build Component
+  description: |
+    Builds JAR files using Maven. Runs mvn package -DskipTests with prescribed stages.
   tags:
     - build
     - maven
+    - jar
+  annotations:
+    gitlab.com/project-slug: dwp/engineering/pipeline-solutions/gitlab/components/java
+  links:
+    - url: https://gitlab.com/dwp/engineering/pipeline-solutions/gitlab/components/java/-/blob/main/docs/build/usage.md
+      title: Documentation
+      icon: docs
 spec:
   type: ci-component
   lifecycle: production
   owner: group:devx-working-group
+  system: devx-platform
+  dependsOn:
+    - component:java-components
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: java-lint
+  title: Java Lint Component
+  description: |
+    Static code analysis using Checkstyle, SpotBugs, PMD, Hadolint, and ShellCheck.
+  tags:
+    - lint
+    - checkstyle
+    - spotbugs
+    - pmd
+  annotations:
+    gitlab.com/project-slug: dwp/engineering/pipeline-solutions/gitlab/components/java
+  links:
+    - url: https://gitlab.com/dwp/engineering/pipeline-solutions/gitlab/components/java/-/blob/main/docs/lint/usage.md
+      title: Documentation
+      icon: docs
+spec:
+  type: ci-component
+  lifecycle: production
+  owner: group:devx-working-group
+  system: devx-platform
+  dependsOn:
+    - component:java-components
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: java-test
-  description: Unit and integration testing for Java
+  title: Java Test Component
+  description: |
+    Unit, integration, Wiremock API, and mutation testing. Best practices ON by default.
   tags:
     - test
     - junit
-spec:
-  type: ci-component
-  lifecycle: production
-  owner: group:devx-working-group
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: java-api-test
-  description: API testing with Wiremock
-  tags:
-    - api
     - wiremock
-    - integration-test
+    - pitest
+  annotations:
+    gitlab.com/project-slug: dwp/engineering/pipeline-solutions/gitlab/components/java
+  links:
+    - url: https://gitlab.com/dwp/engineering/pipeline-solutions/gitlab/components/java/-/blob/main/docs/test/usage.md
+      title: Documentation
+      icon: docs
 spec:
   type: ci-component
   lifecycle: production
   owner: group:devx-working-group
+  system: devx-platform
+  dependsOn:
+    - component:java-components
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: java-docker
-  description: Docker image building for Java applications
+  title: Java Docker Component
+  description: |
+    Docker image building and pushing for Java applications.
   tags:
     - docker
     - container
+  annotations:
+    gitlab.com/project-slug: dwp/engineering/pipeline-solutions/gitlab/components/java
+  links:
+    - url: https://gitlab.com/dwp/engineering/pipeline-solutions/gitlab/components/java/-/blob/main/docs/docker/usage.md
+      title: Documentation
+      icon: docs
 spec:
   type: ci-component
   lifecycle: production
   owner: group:devx-working-group
+  system: devx-platform
+  dependsOn:
+    - component:java-components
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: java-security
-  description: Static security analysis (SonarQube, container scanning)
+  title: Java Security Component
+  description: |
+    Static security analysis with SonarQube, container scanning, and virus scanning.
   tags:
     - security
     - sast
     - sonarqube
+  annotations:
+    gitlab.com/project-slug: dwp/engineering/pipeline-solutions/gitlab/components/java
+  links:
+    - url: https://gitlab.com/dwp/engineering/pipeline-solutions/gitlab/components/java/-/blob/main/docs/security/usage.md
+      title: Documentation
+      icon: docs
 spec:
   type: ci-component
   lifecycle: production
   owner: group:devx-working-group
+  system: devx-platform
+  dependsOn:
+    - component:java-components
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: java-app-pipeline
-  description: Meta-component composing all Java components for backend applications
+  title: Java App Pipeline (Meta-Component)
+  description: |
+    Complete pipeline for Java backend applications. Zero configuration needed.
+    Composes build, test, lint, docker, and security components.
   tags:
     - meta
     - backend
     - pipeline
+    - all-in-one
+  annotations:
+    gitlab.com/project-slug: dwp/engineering/pipeline-solutions/gitlab/components/java
+  links:
+    - url: https://gitlab.com/dwp/engineering/pipeline-solutions/gitlab/components/java/-/blob/main/docs/app-pipeline/usage.md
+      title: Documentation
+      icon: docs
 spec:
   type: ci-component
   lifecycle: production
   owner: group:devx-working-group
+  system: devx-platform
+  dependsOn:
+    - component:java-build
+    - component:java-lint
+    - component:java-test
+    - component:java-docker
+    - component:java-security

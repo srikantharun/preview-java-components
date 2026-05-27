@@ -3,15 +3,30 @@ spec:
     component_context_dir:
     job_name_prefix:
     job_stage:
+    java_version:
     # Private variables.
-    _component_image:
+    _component_sha:
+    _component_version:
+      default: ""
+    _component_image_variant:
+      type: string
+      rules:
+        - if: $[[ inputs._component_version ]] == ""
+          default: "sha"
+        - default: "version"
 ---
+
+".$[[ inputs.job_name_prefix ]]java::common::image-sha":
+  image: "$CI_REGISTRY/dwp/engineering/pipeline-solutions/gitlab/components/java:$[[ inputs._component_sha ]]-jdk$[[ inputs.java_version ]]"
+
+".$[[ inputs.job_name_prefix ]]java::common::image-version":
+  image: "$CI_REGISTRY/dwp/engineering/pipeline-solutions/gitlab/components/java:$[[ inputs._component_version ]]-jdk$[[ inputs.java_version ]]"
 
 ".$[[ inputs.job_name_prefix ]]java::common":
   before_script:
     # Switch working directory.
     - cd "$[[ inputs.component_context_dir ]]"
-  image: $[[ inputs._component_image ]]
+  extends: ".$[[ inputs.job_name_prefix ]]java::common::image-$[[ inputs._component_image_variant | expand_vars ]]"
   inherit:
     # Do not allow global default job configs to override our jobs.
     default: false

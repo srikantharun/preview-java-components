@@ -1,19 +1,12 @@
 # app-pipeline
 
-Meta-component that composes all Java atomic components into a complete pipeline for backend applications.
-
-## Overview
-
-The `app-pipeline` component provides a batteries-included pipeline for Java backend applications. It internally includes and configures the atomic components (`lint`, `build`, `test`, `docker`, `security`, etc.) based on your inputs.
+Meta-component that composes all Java atomic components with prescribed best practices.
 
 ## Quick Start
 
 ```yaml
 include:
   - component: $CI_SERVER_FQDN/dwp/engineering/pipeline-solutions/gitlab/components/java/app-pipeline@1.0.0
-    inputs:
-      has_api: true
-      use_wiremock: true
 
 stages:
   - .pre
@@ -28,87 +21,88 @@ stages:
   - .post
 ```
 
+**That's it.** Zero inputs required for most projects.
+
+## Prescribed Behavior
+
+With default settings, you get:
+
+| Capability | Included | Rationale |
+|------------|----------|-----------|
+| Lint (Checkstyle, SpotBugs, PMD) | Always | Code quality |
+| Build (JAR) | Always | Produces artifact |
+| Unit tests | Always | Non-negotiable |
+| Integration tests | Always | Best practice |
+| Mutation tests | Always | Quality assurance |
+| Docker build | Always | Container deployment |
+| Security (SonarQube, container scan) | Always | Shift-left security |
+| Release (auto-tag-merge) | Always | Release automation |
+| Wiremock API tests | When `has_api=true` | API projects |
+| Dynamic security (DAST, API fuzzer) | When `has_api=true` | API security |
+| Performance tests | When configured | Opt-in |
+
 ## Inputs
 
 | Input | Type | Default | Description |
 |-------|------|---------|-------------|
-| `has_api` | boolean | `true` | Project exposes an HTTP API |
-| `use_wiremock` | boolean | `true` | Use Wiremock for integration tests |
-| `run_performance_tests` | boolean | `false` | Run K6 performance tests |
-| `run_mutation_tests` | boolean | `true` | Run PiTest mutation testing |
 | `java_version` | string | `25` | Java version (`21` or `25`) |
+| `has_api` | boolean | `true` | Project exposes an HTTP API |
+| `use_wiremock` | boolean | `true` | Use Wiremock for API tests |
+| `run_mutation_tests` | boolean | `true` | Run PiTest mutation testing |
+| `run_performance_tests` | boolean | `false` | Run K6 performance tests |
 | `k6_test_file` | string | `""` | Path to K6 test script |
 | `component_context_dir` | string | `./` | Working directory |
-| `job_name_prefix` | string | `""` | Prefix for job names |
+| `job_name_prefix` | string | `""` | Job name prefix |
 
-## Application Types
+## Application Profiles
 
-### Backend with API and Wiremock (default)
-
-```yaml
-inputs:
-  has_api: true
-  use_wiremock: true
-```
-
-Jobs included:
-- All lint jobs (checkstyle, spotbugs, pmd, hadolint, shellcheck, openapi-validation)
-- Build jobs (dependencies, package)
-- Test jobs (unit, integration)
-- API test jobs (wiremock)
-- Mutation test (pitest)
-- Docker build
-- Security (sonarqube, container scanning, virus scan)
-- Security dynamic (api-fuzzer, dast-api)
-- Release (auto-tag-merge)
-
-### Backend with API, no Wiremock
+### API Backend (default)
 
 ```yaml
-inputs:
-  has_api: true
-  use_wiremock: false
+include:
+  - component: $CI_SERVER_FQDN/.../java/app-pipeline@1.0.0
+    # No inputs needed - defaults are correct
 ```
 
-Same as above, minus:
-- Wiremock integration test
+Jobs: lint, build, test (unit, integration, wiremock, mutation), docker, security, security-dynamic, release
 
-### Backend without API
+### API Backend without Wiremock
 
 ```yaml
-inputs:
-  has_api: false
-  use_wiremock: false  # must be false when has_api=false
+include:
+  - component: $CI_SERVER_FQDN/.../java/app-pipeline@1.0.0
+    inputs:
+      use_wiremock: false
 ```
 
-Same as default, minus:
-- OpenAPI validation
-- Wiremock integration test
-- API fuzzer
-- DAST API
-- Performance tests
+### Non-API Application
+
+```yaml
+include:
+  - component: $CI_SERVER_FQDN/.../java/app-pipeline@1.0.0
+    inputs:
+      has_api: false
+```
+
+Excludes: OpenAPI validation, Wiremock, API fuzzing, DAST API
 
 ## Invalid Combinations
 
-The following input combination is **invalid** and will cause the pipeline to fail:
-
 ```yaml
-# INVALID - will fail validation
+# INVALID - will fail with exit code 70
 inputs:
   has_api: false
-  use_wiremock: true  # Wiremock requires an API to mock!
+  use_wiremock: true  # Wiremock needs an API to mock!
 ```
-
-The validation job exits with code `70` and provides guidance on how to fix.
 
 ## Exit Codes
 
-| Code | Meaning | Resolution |
-|------|---------|------------|
-| 0 | Success | None required |
-| 70 | Invalid input combination | Check `has_api` and `use_wiremock` inputs |
-| 211 | Checkstyle violations | Fix code style issues |
-| 212 | SpotBugs violations | Fix potential bugs |
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 70 | Invalid input combination |
+| 211 | Checkstyle violations |
+| 212 | SpotBugs violations |
 
 ## Support
 

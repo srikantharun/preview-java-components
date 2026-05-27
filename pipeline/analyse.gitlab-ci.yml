@@ -1,0 +1,35 @@
+# =============================================================================
+# Static analysis of the component repository itself
+# =============================================================================
+
+yamllint:
+  stage: analyse
+  image: cytopia/yamllint:latest
+  script:
+    - yamllint -d relaxed templates/
+  rules:
+    - changes:
+        - templates/**/*.yml
+
+shellcheck:
+  stage: analyse
+  image: koalaman/shellcheck-alpine:stable
+  script:
+    - find src/ -name "*.sh" -exec shellcheck {} +
+  rules:
+    - changes:
+        - src/**/*.sh
+  allow_failure: true
+
+validate-component-spec:
+  stage: analyse
+  script:
+    - |
+      for template in templates/*.yml; do
+        echo "Validating $template..."
+        grep -q "^spec:" "$template" || { echo "ERROR: Missing spec block in $template"; exit 1; }
+      done
+      echo "All component specs valid"
+  rules:
+    - changes:
+        - templates/*.yml

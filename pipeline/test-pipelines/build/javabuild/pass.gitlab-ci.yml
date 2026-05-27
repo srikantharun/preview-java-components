@@ -1,0 +1,29 @@
+spec:
+  inputs:
+    java_version:
+      type: string
+      description: Major JDK version to use (LTS only)
+---
+
+workflow:
+  name: "javabuild (passing tests, JDK$[[ inputs.java_version ]])"
+  rules:
+    - when: always
+
+stages:
+  - build
+  - assert
+
+include:
+  - component: $CI_SERVER_FQDN/$CI_PROJECT_PATH/build@$CI_COMMIT_SHA
+    inputs:
+      java_version: "$[[ inputs.java_version | expand_vars ]]"
+      component_context_dir: "pipeline/test-pipelines/build/javabuild/fixtures/pass"
+
+# Assertions
+assert::pass:
+  stage: assert
+  image: nexus.nonprod.dwpcloud.uk/docker/chainguard/curl:latest-dev
+  tags:
+    - dwp-aws-x86-linux-l
+  script: pipeline/test-pipelines/build/javabuild/assert.pass.sh "pipeline/test-pipelines/build/javabuild/fixtures/pass"

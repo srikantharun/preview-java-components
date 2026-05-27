@@ -8,3 +8,4 @@ functions_dir="$(
 
 . "$functions_dir/log-utilities.sh"
 . "$functions_dir/exit-handler.sh"
+. "$functions_dir/component-environment.sh"
