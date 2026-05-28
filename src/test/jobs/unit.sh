@@ -19,6 +19,9 @@ shared_dir="$(
 # shellcheck source=src/shared/lib/all.sh
 . "$functions_dir/all.sh"
 
+# shellcheck source=src/shared/lib/pom-utilities.sh
+. "$functions_dir/pom-utilities.sh"
+
 # Main program.
 main() {
 	init_exit_handler
