@@ -25,9 +25,10 @@ include:
       component_context_dir: "pipeline/test-pipelines/test/fixtures/fail"
       run_integration_tests: false
 
-# Assertions
+# Assertions - runs after unit test fails (expected behavior)
 assert::fail:
   stage: assert
+  when: on_failure
   image: nexus.nonprod.dwpcloud.uk/docker/chainguard/curl:latest-dev
   tags:
     - dwp-aws-x86-linux-l
