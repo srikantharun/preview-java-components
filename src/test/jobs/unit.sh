@@ -19,10 +19,70 @@ shared_dir="$(
 # shellcheck source=src/shared/lib/all.sh
 . "$functions_dir/all.sh"
 
-# shellcheck source=src/shared/lib/pom-utilities.sh
-. "$functions_dir/pom-utilities.sh"
+# =============================================================================
+# POM Utilities (inlined)
+# =============================================================================
 
-# Main program.
+# Validates that the Surefire plugin is configured in the pom.xml.
+# Exit codes: 201-209 reserved for plugin validation failures.
+validate_surefire_plugin() {
+	local pom_file="${1:-pom.xml}"
+
+	if [[ ! -f "$pom_file" ]]; then
+		log_fatal "pom.xml not found at: $pom_file"
+		return 201
+	fi
+
+	# Check if Surefire plugin is configured (either explicitly or via parent POM inheritance)
+	if grep -q "maven-surefire-plugin" "$pom_file"; then
+		log_info "Surefire plugin found in pom.xml"
+		return 0
+	fi
+
+	# Check if there's a parent POM that might provide Surefire (common in Spring Boot, etc.)
+	if grep -q "<parent>" "$pom_file"; then
+		log_info "Parent POM detected - assuming Surefire plugin inherited"
+		return 0
+	fi
+
+	# Check if there's a packaging type that implies Surefire (jar, war, etc.)
+	local packaging
+	packaging=$(grep -oP '(?<=<packaging>)[^<]+' "$pom_file" 2>/dev/null || echo "jar")
+	if [[ "$packaging" =~ ^(jar|war|ear|ejb)$ ]]; then
+		log_info "Standard packaging type '$packaging' detected - Surefire plugin assumed via Maven defaults"
+		return 0
+	fi
+
+	log_fatal "Surefire plugin not configured in pom.xml. Please add maven-surefire-plugin to your build configuration."
+	return 202
+}
+
+# Extracts and prints coverage percentage from JaCoCo CSV report.
+# Output format matches GitLab's coverage regex: "XX.XX% covered"
+extract_coverage() {
+	local jacoco_csv="${1:-target/site/jacoco/jacoco.csv}"
+
+	if [[ ! -f "$jacoco_csv" ]]; then
+		log_warn "JaCoCo CSV report not found at: $jacoco_csv"
+		return 1
+	fi
+
+	awk -F"," '{
+		instructions += $4 + $5
+		covered += $5
+		line_condition_cov += $7 + $9
+		line_condition_total += $6 + $7 + $8 + $9
+	} END {
+		print line_condition_cov, "/", line_condition_total, " line conditions covered"
+		print covered, "/", instructions, " instructions covered"
+		print 100*covered/instructions "% covered"
+	}' "$jacoco_csv"
+}
+
+# =============================================================================
+# Main program
+# =============================================================================
+
 main() {
 	init_exit_handler
 	init_component_environment "test"

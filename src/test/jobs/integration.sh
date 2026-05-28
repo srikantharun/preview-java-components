@@ -19,10 +19,113 @@ shared_dir="$(
 # shellcheck source=src/shared/lib/all.sh
 . "$functions_dir/all.sh"
 
-# shellcheck source=src/shared/lib/pom-utilities.sh
-. "$functions_dir/pom-utilities.sh"
+# =============================================================================
+# POM Utilities (inlined)
+# =============================================================================
 
-# Main program.
+# Injects skipUnitTests configuration into pom.xml if not already present.
+# This allows -DskipUnitTests=true to work for skipping unit tests during integration tests.
+inject_skip_unit_tests_config() {
+	local pom_file="${1:-pom.xml}"
+
+	if [[ ! -f "$pom_file" ]]; then
+		log_fatal "pom.xml not found at: $pom_file"
+		return 201
+	fi
+
+	# Check if skipUnitTests configuration already exists
+	if grep -q "skipUnitTests" "$pom_file"; then
+		log_info "skipUnitTests configuration already present in pom.xml"
+		return 0
+	fi
+
+	log_info "Injecting skipUnitTests configuration into pom.xml"
+
+	# Create backup
+	cp "$pom_file" "${pom_file}.backup"
+
+	# Check if maven-surefire-plugin is already configured
+	if grep -q "maven-surefire-plugin" "$pom_file"; then
+		# Plugin exists - inject configuration into existing plugin block
+		sed -i.tmp '/<artifactId>maven-surefire-plugin<\/artifactId>/a\
+        <configuration>\
+          <skipTests>${skipUnitTests}</skipTests>\
+        </configuration>' "$pom_file"
+		rm -f "${pom_file}.tmp"
+		log_info "Added skipUnitTests configuration to existing Surefire plugin"
+	else
+		# Plugin not explicitly configured - add full plugin configuration
+		if grep -q "</plugins>" "$pom_file"; then
+			sed -i.tmp 's|</plugins>|<plugin>\
+        <groupId>org.apache.maven.plugins</groupId>\
+        <artifactId>maven-surefire-plugin</artifactId>\
+        <configuration>\
+          <skipTests>${skipUnitTests}</skipTests>\
+        </configuration>\
+      </plugin>\
+      </plugins>|' "$pom_file"
+			rm -f "${pom_file}.tmp"
+			log_info "Added Surefire plugin with skipUnitTests configuration"
+		elif grep -q "<build>" "$pom_file"; then
+			sed -i.tmp 's|</build>|<plugins>\
+      <plugin>\
+        <groupId>org.apache.maven.plugins</groupId>\
+        <artifactId>maven-surefire-plugin</artifactId>\
+        <configuration>\
+          <skipTests>${skipUnitTests}</skipTests>\
+        </configuration>\
+      </plugin>\
+    </plugins>\
+    </build>|' "$pom_file"
+			rm -f "${pom_file}.tmp"
+			log_info "Added plugins section with Surefire configuration"
+		else
+			sed -i.tmp 's|</project>|<build>\
+    <plugins>\
+      <plugin>\
+        <groupId>org.apache.maven.plugins</groupId>\
+        <artifactId>maven-surefire-plugin</artifactId>\
+        <configuration>\
+          <skipTests>${skipUnitTests}</skipTests>\
+        </configuration>\
+      </plugin>\
+    </plugins>\
+  </build>\
+</project>|' "$pom_file"
+			rm -f "${pom_file}.tmp"
+			log_info "Added build section with Surefire configuration"
+		fi
+	fi
+
+	return 0
+}
+
+# Extracts and prints coverage percentage from JaCoCo CSV report.
+# Output format matches GitLab's coverage regex: "XX.XX% covered"
+extract_coverage() {
+	local jacoco_csv="${1:-target/site/jacoco/jacoco.csv}"
+
+	if [[ ! -f "$jacoco_csv" ]]; then
+		log_warn "JaCoCo CSV report not found at: $jacoco_csv"
+		return 1
+	fi
+
+	awk -F"," '{
+		instructions += $4 + $5
+		covered += $5
+		line_condition_cov += $7 + $9
+		line_condition_total += $6 + $7 + $8 + $9
+	} END {
+		print line_condition_cov, "/", line_condition_total, " line conditions covered"
+		print covered, "/", instructions, " instructions covered"
+		print 100*covered/instructions "% covered"
+	}' "$jacoco_csv"
+}
+
+# =============================================================================
+# Main program
+# =============================================================================
+
 main() {
 	init_exit_handler
 	init_component_environment "test"
