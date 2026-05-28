@@ -27,6 +27,7 @@ main() {
 	# Script variables.
 	local maven_settings_file="$shared_dir/settings.xml"
 	local maven_repo_dir=".m2-local"
+	local pom_file="pom.xml"
 
 	# renovate: datasource=maven depName=org.jacoco:jacoco-maven-plugin
 	local jacoco_version="0.8.12"
@@ -37,18 +38,28 @@ main() {
 	log_info "jacoco_version = $jacoco_version"
 	log_info "pwd = $(pwd)"
 
-	# Run Maven verify for unit tests with JaCoCo coverage.
+	# Validate Surefire plugin is configured (exit 201-209 if not)
+	validate_surefire_plugin "$pom_file"
+
+	# Run Maven unit tests with JaCoCo coverage.
 	# - prepare-agent: Instruments bytecode to track coverage
-	# - verify with -DskipITs: Runs unit tests only (skips integration tests)
+	# - test: Runs unit tests only (not verify which includes integration tests)
+	# - -DskipITs=true: Explicitly skip integration tests
 	# - report: Generates coverage XML at target/site/jacoco/jacoco.xml
+	log_info "Running unit tests with JaCoCo coverage..."
 	mvn org.jacoco:jacoco-maven-plugin:${jacoco_version}:prepare-agent \
-		verify \
+		test \
 		org.jacoco:jacoco-maven-plugin:${jacoco_version}:report \
-		-DskipITs \
+		-DskipITs=true \
 		-Dmaven.repo.local="$maven_repo_dir" \
 		-s "$maven_settings_file"
 
 	log_info "Unit tests completed successfully."
+
+	# Extract and display coverage for GitLab
+	# Output format matches coverage regex: /^(\d+\.?\d+?\%)\scovered\s*$/
+	log_info "Extracting coverage report..."
+	extract_coverage "target/site/jacoco/jacoco.csv" || true
 }
 
 # Run main program.

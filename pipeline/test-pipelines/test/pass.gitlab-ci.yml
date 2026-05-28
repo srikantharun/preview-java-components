@@ -6,21 +6,21 @@ spec:
 ---
 
 workflow:
-  name: "javatest (passing tests, JDK$[[ inputs.java_version ]])"
+  name: "java/test (passing tests, JDK$[[ inputs.java_version ]])"
   rules:
     - when: always
 
 stages:
   - unit-test
+  - integration-test
   - assert
 
 include:
   - component: $CI_SERVER_FQDN/$CI_PROJECT_PATH/test@$CI_COMMIT_SHA
     inputs:
       java_version: "$[[ inputs.java_version | expand_vars ]]"
-      component_context_dir: "pipeline/test-pipelines/test/javatest/fixtures/pass"
+      component_context_dir: "pipeline/test-pipelines/test/fixtures/pass"
       run_integration_tests: false
-      run_mutation_tests: false
 
 # Assertions
 assert::pass:
@@ -28,4 +28,4 @@ assert::pass:
   image: nexus.nonprod.dwpcloud.uk/docker/chainguard/curl:latest-dev
   tags:
     - dwp-aws-x86-linux-l
-  script: pipeline/test-pipelines/test/javatest/assert.pass.sh "pipeline/test-pipelines/test/javatest/fixtures/pass"
+  script: pipeline/test-pipelines/test/assert.pass.sh "pipeline/test-pipelines/test/fixtures/pass"

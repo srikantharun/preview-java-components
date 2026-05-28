@@ -27,6 +27,7 @@ main() {
 	# Script variables.
 	local maven_settings_file="$shared_dir/settings.xml"
 	local maven_repo_dir=".m2-local"
+	local pom_file="pom.xml"
 
 	# renovate: datasource=maven depName=org.jacoco:jacoco-maven-plugin
 	local jacoco_version="0.8.12"
@@ -37,18 +38,29 @@ main() {
 	log_info "jacoco_version = $jacoco_version"
 	log_info "pwd = $(pwd)"
 
+	# Inject skipUnitTests configuration into pom.xml if not already present
+	# This allows -DskipUnitTests=true to skip unit tests during integration test phase
+	inject_skip_unit_tests_config "$pom_file"
+
 	# Run Maven integration tests with JaCoCo coverage.
 	# - prepare-agent: Instruments bytecode to track coverage
-	# - verify with -DskipUnitTests: Runs integration tests only (skips unit tests)
+	# - verify: Runs full lifecycle including integration tests (failsafe)
+	# - -DskipUnitTests=true: Skip unit tests (run integration tests only)
 	# - report: Generates coverage XML at target/site/jacoco/jacoco.xml
+	log_info "Running integration tests with JaCoCo coverage..."
 	mvn org.jacoco:jacoco-maven-plugin:${jacoco_version}:prepare-agent \
 		verify \
 		org.jacoco:jacoco-maven-plugin:${jacoco_version}:report \
-		-DskipUnitTests \
+		-DskipUnitTests=true \
 		-Dmaven.repo.local="$maven_repo_dir" \
 		-s "$maven_settings_file"
 
 	log_info "Integration tests completed successfully."
+
+	# Extract and display coverage for GitLab
+	# Output format matches coverage regex: /^(\d+\.?\d+?\%)\scovered\s*$/
+	log_info "Extracting coverage report..."
+	extract_coverage "target/site/jacoco/jacoco.csv" || true
 }
 
 # Run main program.

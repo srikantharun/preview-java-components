@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Dependencies
 functions_dir="$(
-    cd "$(dirname "${BASH_SOURCE[0]}")/../../../../src/shared/lib" || exit 1
+    cd "$(dirname "${BASH_SOURCE[0]}")/../../../src/shared/lib" || exit 1
     pwd
 )"
 

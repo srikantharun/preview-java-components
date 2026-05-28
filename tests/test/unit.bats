@@ -1,18 +1,20 @@
 #!/usr/bin/env bats
 # ================================================================
-# mutation.bats – Bats tests for src/test/jobs/mutation.sh
+# unit.bats – Bats tests for src/test/jobs/unit.sh
 #
-# Tests the standalone mutation test script which runs
-# mvn org.pitest:pitest-maven:mutationCoverage for mutation testing.
+# Tests the standalone unit test script which runs
+# mvn test to execute unit tests.
 #
 # Exit codes:
-#     0 - mutation tests complete
-#     1 - Maven/PiTest failure
+#     0 - tests pass
+#     1 - Maven/test failure
+#   201 - pom.xml not found
+#   202 - Surefire plugin not configured
 #   220 - required environment variables missing
 #
 # Requirements: Maven + JDK on PATH (use 'mise install' to set up)
 #
-# Run with: mise exec -- bats tests/javatest/mutation.bats
+# Run with: mise exec -- bats tests/test/unit.bats
 # ================================================================
 
 # --------------------------------------- File-level setup (once per .bats file)
@@ -65,51 +67,99 @@ teardown() {
 # Environment validation
 # ================================================================
 
-@test "mutation.sh fails when required environment variables are missing" {
+@test "unit.sh fails when required environment variables are missing" {
 	unset COMPONENT_SHA
 	unset COMPONENT_PROJECT_PATH
 	unset COMPONENT_VERSION
-	prepare_fixture "$FIXTURES_DIR/mutation-project"
+	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
 
-	run "mutation.sh"
+	run "unit.sh"
 
 	assert_failure 220
 }
 
 # ================================================================
-# Mutation tests (src/test/jobs/mutation.sh)
+# Surefire plugin validation
 # ================================================================
 
-@test "mutation.sh succeeds for project configured for PiTest" {
+@test "unit.sh fails with exit 201 when pom.xml is missing" {
 	stub_valid_component_environment
-	prepare_fixture "$FIXTURES_DIR/mutation-project"
+	# Empty directory - no pom.xml
 
-	run "mutation.sh"
+	run "unit.sh"
+
+	assert_failure 201
+}
+
+@test "unit.sh succeeds when Surefire plugin is explicitly configured" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
+
+	run "unit.sh"
 
 	assert_success
 }
 
-@test "mutation.sh produces pit-reports" {
+@test "unit.sh succeeds when parent POM is present (inherited Surefire)" {
 	stub_valid_component_environment
-	prepare_fixture "$FIXTURES_DIR/mutation-project"
+	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
+	# Fixture should have a parent POM reference
 
-	run "mutation.sh"
+	run "unit.sh"
 
 	assert_success
-	assert_file_exists "./target/pit-reports"
 }
 
-@test "mutation.sh invokes pitest-maven plugin" {
+# ================================================================
+# Unit tests (src/test/jobs/unit.sh)
+# ================================================================
+
+@test "unit.sh succeeds for project with passing tests" {
 	stub_valid_component_environment
-	prepare_fixture "$FIXTURES_DIR/mutation-project"
+	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
 
-	# Capture Maven args to verify pitest goal is invoked
-	local captured_args="$TEST_SANDBOX/captured_args.txt"
-	stub_program_capture_args "mvn" "$captured_args"
-
-	run "mutation.sh"
+	run "unit.sh"
 
 	assert_success
-	run cat "$captured_args"
-	assert_output --partial "org.pitest:pitest-maven:mutationCoverage"
+}
+
+@test "unit.sh fails for project with failing tests" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/failing-unit-tests"
+
+	run "unit.sh"
+
+	assert_failure
+}
+
+@test "unit.sh produces surefire reports" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
+
+	run "unit.sh"
+
+	assert_success
+	assert_file_exists "./target/surefire-reports"
+}
+
+@test "unit.sh produces JaCoCo coverage report" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
+
+	run "unit.sh"
+
+	assert_success
+	assert_file_exists "./target/site/jacoco/jacoco.xml"
+	assert_file_exists "./target/site/jacoco/jacoco.csv"
+}
+
+@test "unit.sh outputs coverage percentage for GitLab" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
+
+	run "unit.sh"
+
+	assert_success
+	# Coverage output should match regex: /^(\d+\.?\d+?\%)\scovered\s*$/
+	assert_output --partial "% covered"
 }

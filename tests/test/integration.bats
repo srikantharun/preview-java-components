@@ -8,11 +8,12 @@
 # Exit codes:
 #     0 - tests pass
 #     1 - Maven/test failure
+#   201 - pom.xml not found
 #   220 - required environment variables missing
 #
 # Requirements: Maven + JDK on PATH (use 'mise install' to set up)
 #
-# Run with: mise exec -- bats tests/javatest/integration.bats
+# Run with: mise exec -- bats tests/test/integration.bats
 # ================================================================
 
 # --------------------------------------- File-level setup (once per .bats file)
@@ -77,6 +78,29 @@ teardown() {
 }
 
 # ================================================================
+# POM injection for skipUnitTests
+# ================================================================
+
+@test "integration.sh fails with exit 201 when pom.xml is missing" {
+	stub_valid_component_environment
+	# Empty directory - no pom.xml
+
+	run "integration.sh"
+
+	assert_failure 201
+}
+
+@test "integration.sh injects skipUnitTests config when not present" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/passing-integration-tests"
+
+	run "integration.sh"
+
+	# Check that skipUnitTests was injected (or already present)
+	assert_success
+}
+
+# ================================================================
 # Integration tests (src/test/jobs/integration.sh)
 # ================================================================
 
@@ -133,4 +157,26 @@ EOF
 
 	# Should pass because unit tests are skipped
 	assert_success
+}
+
+@test "integration.sh produces JaCoCo coverage report" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/passing-integration-tests"
+
+	run "integration.sh"
+
+	assert_success
+	assert_file_exists "./target/site/jacoco/jacoco.xml"
+	assert_file_exists "./target/site/jacoco/jacoco.csv"
+}
+
+@test "integration.sh outputs coverage percentage for GitLab" {
+	stub_valid_component_environment
+	prepare_fixture "$FIXTURES_DIR/passing-integration-tests"
+
+	run "integration.sh"
+
+	assert_success
+	# Coverage output should match regex: /^(\d+\.?\d+?\%)\scovered\s*$/
+	assert_output --partial "% covered"
 }

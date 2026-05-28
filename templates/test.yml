@@ -11,14 +11,11 @@ spec:
       default: true
       description: "Run integration tests (mvn verify). Prescribed: ON"
       type: boolean
-    run_wiremock:
-      default: false
-      description: "Run Wiremock API integration tests"
-      type: boolean
-    run_mutation_tests:
-      default: true
-      description: "Run PiTest mutation testing. Prescribed: ON for quality assurance"
-      type: boolean
+    # Services configuration for integration tests
+    services:
+      default: []
+      description: "Array of CI services to stand up (e.g., wiremock stubs, application containers)"
+      type: array
     # Standard Component inputs
     component_context_dir:
       default: "./"
@@ -32,18 +29,19 @@ spec:
       type: string
 ---
 # =============================================================================
-# java/test - Runs all test types
+# java/test - Runs unit and integration tests with JaCoCo coverage
 #
 # Prescribed behavior (best practices ON by default):
 #   - Unit tests: ALWAYS run (non-negotiable quality gate)
 #   - Integration tests: ON by default (best practice)
-#   - Mutation tests: ON by default (catches bugs unit tests miss)
-#   - Wiremock: OFF by default (opt-in for API projects)
 #
 # Stages (prescribed):
-#   - unit-test: Unit tests
-#   - integration-test: Integration tests, Wiremock
-#   - security-static-analysis: Mutation tests
+#   - unit-test: Unit tests (mvn test)
+#   - integration-test: Integration tests (mvn verify)
+#
+# Coverage:
+#   - JaCoCo generates coverage reports
+#   - Coverage regex extracts percentage for GitLab
 # =============================================================================
 
 include:
@@ -55,17 +53,10 @@ include:
       _component_sha: "$[[ component.sha ]]"
       _component_version: "$[[ component.version ]]"
       java_version: "$[[ inputs.java_version ]]"
-  # Wiremock function (conditional usage)
-  - project: dwp/engineering/pipeline-solutions/gitlab/functions
-    ref: 7.1.6
-    file:
-      - functions/wiremock-mr.gitlab-ci.yml
-
-variables:
-  DISABLE_WIREMOCK: "$[[ inputs.run_wiremock | then: 'false', else: 'true' ]]"
 
 # =============================================================================
 # Unit Tests (ALWAYS runs - non-negotiable)
+# Validates Surefire plugin is configured, runs mvn test -DskipITs=true
 # =============================================================================
 
 "$[[ inputs.job_name_prefix ]]java::test::unit":
@@ -74,8 +65,10 @@ variables:
     paths:
       - $[[ inputs.component_context_dir ]]/target/surefire-reports/
       - $[[ inputs.component_context_dir ]]/target/site/jacoco/
+      - $[[ inputs.component_context_dir ]]/target/classes/
+      - $[[ inputs.component_context_dir ]]/target/jacoco.exec
     reports:
-      junit: $[[ inputs.component_context_dir ]]/target/surefire-reports/*.xml
+      junit: $[[ inputs.component_context_dir ]]/target/surefire-reports/TEST-*.xml
       coverage_report:
         coverage_format: jacoco
         path: $[[ inputs.component_context_dir ]]/target/site/jacoco/jacoco.xml
@@ -85,12 +78,16 @@ variables:
     paths:
       - $[[ inputs.component_context_dir ]]/.m2-local/
     when: always
+  coverage: '/^(\d+\.?\d+?\%)\scovered\s*$/'
   extends: ".$[[ inputs.job_name_prefix ]]java::common"
+  needs: []
   stage: unit-test
   script: /component/test/jobs/unit.sh
 
 # =============================================================================
 # Integration Tests (prescribed: ON by default)
+# Injects skipUnitTests config into pom.xml, runs mvn verify -DskipUnitTests=true
+# Runs in PARALLEL with unit tests (no needs dependency)
 # =============================================================================
 
 "$[[ inputs.job_name_prefix ]]java::test::integration":
@@ -99,8 +96,10 @@ variables:
     paths:
       - $[[ inputs.component_context_dir ]]/target/failsafe-reports/
       - $[[ inputs.component_context_dir ]]/target/site/jacoco/
+      - $[[ inputs.component_context_dir ]]/target/classes/
+      - $[[ inputs.component_context_dir ]]/target/jacoco.exec
     reports:
-      junit: $[[ inputs.component_context_dir ]]/target/failsafe-reports/*.xml
+      junit: $[[ inputs.component_context_dir ]]/target/failsafe-reports/TEST-*.xml
       coverage_report:
         coverage_format: jacoco
         path: $[[ inputs.component_context_dir ]]/target/site/jacoco/jacoco.xml
@@ -110,64 +109,11 @@ variables:
     paths:
       - $[[ inputs.component_context_dir ]]/.m2-local/
     when: always
+  coverage: '/^(\d+\.?\d+?\%)\scovered\s*$/'
+  dependencies: []
   extends: ".$[[ inputs.job_name_prefix ]]java::common"
-  needs:
-    - job: "$[[ inputs.job_name_prefix ]]java::build::package"
-      optional: true
   rules:
     - if: '"$[[ inputs.run_integration_tests ]]" == "true"'
+  services: $[[ inputs.services ]]
   stage: integration-test
   script: /component/test/jobs/integration.sh
-
-# =============================================================================
-# Wiremock API Tests (opt-in for API projects)
-# =============================================================================
-
-"$[[ inputs.job_name_prefix ]]java::test::wiremock":
-  artifacts:
-    expire_in: 1 week
-    paths:
-      - $[[ inputs.component_context_dir ]]/target/wiremock-reports/
-      - $[[ inputs.component_context_dir ]]/target/site/jacoco/
-    reports:
-      coverage_report:
-        coverage_format: jacoco
-        path: $[[ inputs.component_context_dir ]]/target/site/jacoco/jacoco.xml
-    when: always
-  cache:
-    key: "${CI_JOB_NAME}-$[[ inputs.java_version ]]"
-    paths:
-      - $[[ inputs.component_context_dir ]]/.m2-local/
-    when: always
-  extends: ".$[[ inputs.job_name_prefix ]]java::common"
-  needs:
-    - job: "$[[ inputs.job_name_prefix ]]java::build::package"
-      optional: true
-  rules:
-    - if: '"$[[ inputs.run_wiremock ]]" == "true"'
-  stage: integration-test
-  script: /component/test/jobs/wiremock.sh
-
-# =============================================================================
-# Mutation Tests (prescribed: ON by default for quality)
-# =============================================================================
-
-"$[[ inputs.job_name_prefix ]]java::test::mutation":
-  artifacts:
-    expire_in: 1 week
-    paths:
-      - $[[ inputs.component_context_dir ]]/target/pit-reports/
-    when: always
-  cache:
-    key: "${CI_JOB_NAME}-$[[ inputs.java_version ]]"
-    paths:
-      - $[[ inputs.component_context_dir ]]/.m2-local/
-    when: always
-  extends: ".$[[ inputs.job_name_prefix ]]java::common"
-  needs:
-    - job: "$[[ inputs.job_name_prefix ]]java::test::unit"
-      optional: true
-  rules:
-    - if: '"$[[ inputs.run_mutation_tests ]]" == "true"'
-  stage: security-static-analysis
-  script: /component/test/jobs/mutation.sh
