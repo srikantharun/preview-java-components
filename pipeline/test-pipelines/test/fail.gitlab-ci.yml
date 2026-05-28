@@ -11,6 +11,9 @@ workflow:
     - when: always
 
 stages:
+  - code-analysis
+  - install
+  - build
   - unit-test
   - integration-test
   - assert
