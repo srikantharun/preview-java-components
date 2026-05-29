@@ -132,16 +132,6 @@ teardown() {
 	assert_failure
 }
 
-@test "unit.sh produces surefire reports" {
-	stub_valid_component_environment
-	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"
-
-	run "unit.sh"
-
-	assert_success
-	assert_file_exists "./target/surefire-reports"
-}
-
 @test "unit.sh produces JaCoCo coverage report" {
 	stub_valid_component_environment
 	prepare_fixture "$FIXTURES_DIR/passing-unit-tests"

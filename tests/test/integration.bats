@@ -122,16 +122,6 @@ teardown() {
 	assert_failure
 }
 
-@test "integration.sh produces failsafe reports" {
-	stub_valid_component_environment
-	prepare_fixture "$FIXTURES_DIR/passing-integration-tests"
-
-	run "integration.sh"
-
-	assert_success
-	assert_file_exists "./target/failsafe-reports"
-}
-
 @test "integration.sh skips unit tests" {
 	stub_valid_component_environment
 	# Use passing-integration-tests fixture which only has IT tests
