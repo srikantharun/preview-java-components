@@ -108,14 +108,27 @@ main() {
 	# - prepare-agent: Instruments bytecode to track coverage
 	# - test: Runs unit tests only (not verify which includes integration tests)
 	# - -DskipITs=true: Explicitly skip integration tests
-	# - report: Generates coverage XML at target/site/jacoco/jacoco.xml
 	log_info "Running unit tests with JaCoCo coverage..."
+	local test_exit_code=0
 	mvn org.jacoco:jacoco-maven-plugin:${jacoco_version}:prepare-agent \
 		test \
-		org.jacoco:jacoco-maven-plugin:${jacoco_version}:report \
 		-DskipITs=true \
 		-Dmaven.repo.local="$maven_repo_dir" \
-		-s "$maven_settings_file"
+		-s "$maven_settings_file" || test_exit_code=$?
+
+	# Generate JaCoCo report even if tests failed (for coverage visibility)
+	if [[ -f "target/jacoco.exec" ]]; then
+		log_info "Generating JaCoCo coverage report..."
+		mvn org.jacoco:jacoco-maven-plugin:${jacoco_version}:report \
+			-Dmaven.repo.local="$maven_repo_dir" \
+			-s "$maven_settings_file" || true
+	fi
+
+	# Exit with original test result
+	if [[ $test_exit_code -ne 0 ]]; then
+		log_fatal "Unit tests failed with exit code: $test_exit_code"
+		exit $test_exit_code
+	fi
 
 	log_info "Unit tests completed successfully."
 
