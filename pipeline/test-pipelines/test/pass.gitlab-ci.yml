@@ -28,6 +28,9 @@ include:
 # Assertions
 assert::pass:
   stage: assert
+  needs:
+    - job: java::test::unit
+      artifacts: true
   image: nexus.nonprod.dwpcloud.uk/docker/chainguard/curl:latest-dev
   tags:
     - dwp-aws-x86-linux-l

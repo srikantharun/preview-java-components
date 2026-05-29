@@ -36,3 +36,14 @@ test-pipelines:build:
         JAVA_VERSION:
           - 21
           - 25
+
+test-pipelines:test:
+  extends: .test-pipelines
+  parallel:
+    matrix:
+      - TEST_PATH:
+          - test/pass
+          - test/fail
+        JAVA_VERSION:
+          - 21
+          - 25
