@@ -25,10 +25,13 @@ include:
       component_context_dir: "pipeline/test-pipelines/test/fixtures/fail"
       run_integration_tests: false
 
+# Override the unit test job to expect failure
+"java::test::unit":
+  allow_failure: true
+
 # Assertions - runs after unit test fails (expected behavior)
 assert::fail:
   stage: assert
-  when: on_failure
   needs:
     - job: java::test::unit
       artifacts: true

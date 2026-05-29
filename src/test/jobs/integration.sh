@@ -47,6 +47,7 @@ inject_skip_unit_tests_config() {
 	# Check if maven-surefire-plugin is already configured
 	if grep -q "maven-surefire-plugin" "$pom_file"; then
 		# Plugin exists - inject configuration into existing plugin block
+		# shellcheck disable=SC2016 # ${skipUnitTests} is a Maven property, not a shell variable
 		sed -i.tmp '/<artifactId>maven-surefire-plugin<\/artifactId>/a\
         <configuration>\
           <skipTests>${skipUnitTests}</skipTests>\
@@ -56,6 +57,7 @@ inject_skip_unit_tests_config() {
 	else
 		# Plugin not explicitly configured - add full plugin configuration
 		if grep -q "</plugins>" "$pom_file"; then
+			# shellcheck disable=SC2016 # ${skipUnitTests} is a Maven property, not a shell variable
 			sed -i.tmp 's|</plugins>|<plugin>\
         <groupId>org.apache.maven.plugins</groupId>\
         <artifactId>maven-surefire-plugin</artifactId>\
@@ -67,6 +69,7 @@ inject_skip_unit_tests_config() {
 			rm -f "${pom_file}.tmp"
 			log_info "Added Surefire plugin with skipUnitTests configuration"
 		elif grep -q "<build>" "$pom_file"; then
+			# shellcheck disable=SC2016 # ${skipUnitTests} is a Maven property, not a shell variable
 			sed -i.tmp 's|</build>|<plugins>\
       <plugin>\
         <groupId>org.apache.maven.plugins</groupId>\
@@ -80,6 +83,7 @@ inject_skip_unit_tests_config() {
 			rm -f "${pom_file}.tmp"
 			log_info "Added plugins section with Surefire configuration"
 		else
+			# shellcheck disable=SC2016 # ${skipUnitTests} is a Maven property, not a shell variable
 			sed -i.tmp 's|</project>|<build>\
     <plugins>\
       <plugin>\
